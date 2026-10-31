@@ -1,0 +1,29 @@
+{
+  "name": "dsh-plugin-hzhospital",
+  "version": "1.0.0",
+  "description": "菏泽市中医医院 DSH 侧栏品牌插件，Logo 随包离线交付",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.js", "lib/client.js", "assets/hztxt_logo.png", "cordis.patch.yml", "README.md"],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test",
+    "check": "node scripts/build.mjs --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xrunda/dsh-plugin-hzhospital.git"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-renderer", "@deepseek-ai/dsh-client-ui-sidebar"]
+    }
+  }
+}

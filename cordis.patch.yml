@@ -1,0 +1,4 @@
+# Replace the official branding row rather than racing its slot registrations.
+# Removing this bundle restores the original row from the DSH application layer.
+- id: ui-brand-official
+  name: dsh-plugin-hzhospital
