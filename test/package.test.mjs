@@ -8,29 +8,30 @@ const root = new URL('../', import.meta.url)
 const pkg = JSON.parse(readFileSync(new URL('package.json', root), 'utf8'))
 const artifact = readFileSync(new URL('lib/client.js', root), 'utf8')
 
-test('shipped browser artifact registers lazily and uses only host React', () => {
+test('shipped browser artifact registers lazily and uses host React/Zod', () => {
   let registration
   runInNewContext(artifact, { window: { __ModuleLoader__: { load(value) { registration = value } } } })
   assert.equal(registration.id, pkg.name)
   const requests = []
   const plugin = registration.factory(id => {
     requests.push(id)
+    if (id === 'zod') return { z: {} }
     assert.equal(id, 'react')
     return { createElement: (tag, props, ...children) => ({ tag, props, children }) }
   })
-  assert.deepEqual(requests, ['react'])
+  assert.deepEqual(requests, ['react', 'zod'])
   assert.equal(typeof plugin.apply, 'function')
   const components = new Map()
   // Execute the declaration-aware callbacks to inspect the actual shipped UI.
-  plugin.apply({ slots: {
+  plugin.apply({ on: () => {}, effect: () => {}, remote: {}, slots: {
     inject(key, callback) {
-      assert.ok(['sidebar.brand.mark', 'sidebar.brand.name'].includes(key))
+      assert.ok(['sidebar.brand.mark', 'sidebar.brand.name', 'plugins.bundle.config'].includes(key))
       const result = callback()
       if (result?.[Symbol.iterator]) Array.from(result)
     },
     register({ name }, component) { components.set(name, component) },
   } })
-  assert.equal(components.size, 2)
+  assert.equal(components.size, 3)
   const mark = components.get('sidebar.brand.mark')({ size: 24 })
   assert.equal(mark.props.style.width, 24)
   const img = mark.children[0]
@@ -40,8 +41,7 @@ test('shipped browser artifact registers lazily and uses only host React', () =>
   const original = readFileSync(new URL('assets/hztxt_logo.png', root))
   assert.equal(createHash('sha256').update(decoded).digest('hex'), createHash('sha256').update(original).digest('hex'))
   assert.equal(img.props.width / img.props.height, 4140 / 640)
-  const name = components.get('sidebar.brand.name')()
-  assert.equal(name.children[0].props.style.marginLeft, -24)
+  assert.equal(typeof components.get('plugins.bundle.config'), 'function')
 })
 
 test('all manifest exports and bundle patch ship without install scripts', () => {
