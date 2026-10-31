@@ -54,7 +54,9 @@ try {
   writeFileSync(join(dir, 'package.json'), '{"name":"temporary-test-profile","private":true}')
   globalThis.fetch = async url => {
     fetchCount++
-    return new Response(JSON.stringify(url.includes('/commits/') ? { sha } : { encoding: 'base64', content: Buffer.from(JSON.stringify({ name: 'dsh-plugin-hzhospital', version: '1.2.0', dsh: { bundle: {} } })).toString('base64') }))
+    const payload = `${sha} refs/heads/main\n`
+    return new Response(url.includes('/info/refs') ? `${(Buffer.byteLength(payload) + 4).toString(16).padStart(4, '0')}${payload}0000` :
+      JSON.stringify({ name: 'dsh-plugin-hzhospital', version: '1.2.0', dsh: { bundle: {} } }))
   }
   // Emulate only DSH's peer resolution; run the actual shipped host entry.
   globalThis.__hzhTestRequire = req

@@ -17,6 +17,24 @@ export function compareVersions(a, b) {
   return 0
 }
 
+// Read Git smart-HTTP v0 advertisements: no Git executable or GitHub API quota.
+export function mainCommit(advertisement) {
+  const bytes = Buffer.from(advertisement, 'utf8')
+  let offset = 0
+  while (offset < bytes.length) {
+    const header = bytes.subarray(offset, offset + 4).toString('ascii')
+    if (!/^[a-f0-9]{4}$/i.test(header)) throw new Error('Git 更新源响应格式无效')
+    const length = parseInt(header, 16)
+    if (length === 0) { offset += 4; continue }
+    if (length < 4 || offset + length > bytes.length) throw new Error('Git 更新源响应不完整')
+    const payload = bytes.subarray(offset + 4, offset + length).toString('utf8')
+    const match = /^([a-f0-9]{40}) refs\/heads\/main(?:\0|\n|$)/.exec(payload)
+    if (match) return match[1]
+    offset += length
+  }
+  throw new Error('Git 更新源中没有 main 分支')
+}
+
 export class HospitalUpdater {
   constructor({ version, manager, fetcher = fetch, now = Date.now, signal, verifyInstalled }) {
     this.manager = manager
@@ -35,16 +53,16 @@ export class HospitalUpdater {
     return ['change', 'configure', 'runPnpm', 'readRestoredFiles', 'restoreFiles'].every(key => typeof this.manager?.[key] === 'function')
   }
   getState() { return { ...this.state } }
-  async json(url) {
+  async text(url) {
     const signal = this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000)
-    const response = await this.fetcher(url, { signal, headers: { Accept: 'application/vnd.github+json', 'User-Agent': PACKAGE } })
+    const response = await this.fetcher(url, { signal, headers: { Accept: '*/*', 'User-Agent': PACKAGE } })
     if (!response.ok) {
       if (response.status === 403 || response.status === 429) throw new Error('GitHub 请求受限，请稍后手动重试')
       throw new Error(`无法访问 GitHub（HTTP ${response.status}）`)
     }
     const text = await response.text()
     if (text.length > 256 * 1024) throw new Error('更新信息过大，已拒绝读取')
-    return JSON.parse(text)
+    return text
   }
   check(force = false) {
     if (typeof force !== 'boolean') return Promise.reject(new Error('检查参数无效'))
@@ -57,15 +75,13 @@ export class HospitalUpdater {
   async performCheck() {
     this.state = { ...this.state, status: 'checking', message: '正在检查 GitHub…' }
     try {
-      const head = await this.json(`https://api.github.com/repos/${REPOSITORY}/commits/main`)
-      if (!SHA.test(head.sha)) throw new Error('GitHub 返回的提交编号无效')
-      const content = await this.json(`https://api.github.com/repos/${REPOSITORY}/contents/package.json?ref=${head.sha}`)
-      if (content.encoding !== 'base64' || typeof content.content !== 'string') throw new Error('版本文件格式无效')
-      const manifest = JSON.parse(Buffer.from(content.content, 'base64').toString('utf8'))
+      const refs = await this.text(`https://github.com/${REPOSITORY}.git/info/refs?service=git-upload-pack`)
+      const commit = mainCommit(refs)
+      const manifest = JSON.parse(await this.text(`https://raw.githubusercontent.com/${REPOSITORY}/${commit}/package.json`))
       if (manifest.name !== PACKAGE || !manifest.dsh?.bundle) throw new Error('更新源不是医院插件')
       const newer = compareVersions(manifest.version, this.state.currentVersion) > 0
       this.state = { ...this.state, status: newer ? 'available' : 'current', checkedAt: this.now(),
-        latestVersion: manifest.version, commit: head.sha, canUpdate: this.supported(),
+        latestVersion: manifest.version, commit, canUpdate: this.supported(),
         message: newer ? `发现新版本 ${manifest.version}` : '当前已是最新版本' }
     } catch (error) {
       this.state = { ...this.state, status: 'error', checkedAt: this.now(), commit: null, latestVersion: null,

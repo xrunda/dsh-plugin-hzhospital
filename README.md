@@ -18,20 +18,20 @@ dsh plugin --profile <profile> add https://github.com/xrunda/dsh-plugin-hzhospit
 
 仓库提交了 `lib/client.js`，没有需要单独下载安装的运行时依赖（复用 DSH 提供的 Typert 和 Zod），没有安装脚本，无需 TypeScript 编译或安装构建工具。请勿删除该产物。
 
-## 检查和更新版本（1.1.0 起）
+## 检查和更新版本（1.1.1 起）
 
 无需改动 DSH 源码或安装包。医院插件自己提供检测、提示和按钮，通过 DSH 当前安装管理器执行包安装。
 
 - 插件在 DSH 客户端加载、更新 RPC 就绪后自动检查一次，不用先打开详情页；客户端连接重新建立时也会按需复查。
 - 打开本插件详情页时触发检查；距上次检查不足 15 分钟则复用结果。这里是事件触发的缓存，没有定时轮询。
 - 详情页提供“检查更新”，手动点击跳过缓存。有新版时出现“更新到 x.y.z”按钮，院名旁也会显示绿色提示点。
-- 检测 GitHub `main` 的提交，再读取该提交对应的 `package.json`；只接受高于当前版本的正式版本号。相同版本的代码变化不会触发更新，发布时必须提高版本号。
+- 通过 Git smart-HTTP 读取仓库 `main` 的提交，再读取该提交对应的 `package.json`；只接受高于当前版本的正式版本号。相同版本的代码变化不会触发更新，发布时必须提高版本号。
 - 点击更新会安装检测到的确切提交，不会跟随安装期间变动的分支。更新时不运行包安装脚本，不卸载运行中的插件；成功后提示完全退出并重开 DSH。
 - 多个页面的检测合并为一个请求。GitHub 限流、超时或断网会显示检查失败，Logo 继续工作。
 
-当前实现通过 GitHub 公共 API 检测，因此电脑需能访问 `api.github.com`；安装还需访问 GitHub 及其下载服务。没有额外的更新目录或自建服务器。内网 Git 镜像或离线安装仍可使用 Logo，但本版本的检测源固定为此 GitHub 仓库，不会自动跟随镜像地址。
+当前实现直接读取 Git 安装源的提交信息，再通过 `raw.githubusercontent.com` 读取该提交的版本文件，不使用 GitHub 公共 API，不需要 GitHub Token 或额外的 Git 命令。检测和安装需要能访问 GitHub 及其下载服务。没有额外的更新目录或自建服务器。内网 Git 镜像或离线安装仍可使用 Logo，但本版本的检测源固定为此 GitHub 仓库，不会自动跟随镜像地址。
 
-**第一次升级到 1.1.0：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装新版并重启。以后可使用插件自己的按钮更新。
+**第一次升级到 1.1.1：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装新版并重启。以后可使用插件自己的按钮更新。
 
 DSH `installBundle()` 在 HMR 模式会拒绝覆盖已安装包。本插件因此在宿主侧复用 DSH 的 `change/configure/runPnpm` 事务方法，持有相同的 profile 文件锁及 HMR 排他锁，安装后要求重启，不调用 `removeBundle()` 或主动重载自身。失败时通过 DSH 的恢复方法还原依赖记录和锁文件。**这些事务方法属于版本相关的宿主接口**；已在 0.2.1-rc.5 验证，后续 DSH 接口变化可能需要适配插件。方法缺失时不提供一键更新，Logo 和检查功能保留。没有替换、注入或修改任何 DSH 本体文件。
 
@@ -41,10 +41,10 @@ Logo 已保存为 `assets/hztxt_logo.png`，并以 PNG data URI 内嵌在浏览�
 
 **Git 安装仍要求安装机器能访问 Git 服务。** 医院完全断网时，请把本仓库同步到医院内网 Git，再在添加插件处输入内网 `.git` 地址；外网 GitHub 地址无法在完全断网的机器上拉取。
 
-也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.0.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
+也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.1.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
 
 ```sh
-dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.0.tgz
+dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.1.tgz
 ```
 
 ## 兼容范围与工作方式

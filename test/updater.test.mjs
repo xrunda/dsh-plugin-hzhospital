@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HospitalUpdater, compareVersions, CACHE_MS, PACKAGE } from '../src/updater.js'
+import { HospitalUpdater, compareVersions, CACHE_MS, PACKAGE, mainCommit } from '../src/updater.js'
 
 const sha = 'a'.repeat(40)
 function setup({ version = '1.1.0', latest = '1.2.0', now = () => 1000, fetcher, manager = {} } = {}) {
@@ -16,9 +16,9 @@ function setup({ version = '1.1.0', latest = '1.2.0', now = () => 1000, fetcher,
   const updater = new HospitalUpdater({ version, manager: adapter, now, verifyInstalled: async v => assert.equal(v, latest),
     fetcher: fetcher ?? (async url => {
       urls.push(url)
-      return new Response(JSON.stringify(url.includes('/commits/') ? { sha } : {
-        encoding: 'base64', content: Buffer.from(JSON.stringify({ name: PACKAGE, version: latest, dsh: { bundle: {} } })).toString('base64'),
-      }))
+      const payload = `${sha} refs/heads/main\n`
+      return new Response(url.includes('/info/refs') ? `${(Buffer.byteLength(payload) + 4).toString(16).padStart(4, '0')}${payload}0000` :
+        JSON.stringify({ name: PACKAGE, version: latest, dsh: { bundle: {} } }))
     }),
   })
   return { updater, urls, calls, restored: () => restored }
@@ -36,7 +36,7 @@ test('checks pin manifest to commit; cache and overlapping requests prevent dupl
   const first = updater.check(false)
   assert.equal(updater.check(true), first)
   assert.equal((await first).status, 'available')
-  assert.ok(urls[1].endsWith(`?ref=${sha}`))
+  assert.ok(urls[1].includes(`/${sha}/package.json`))
   await updater.check(false)
   assert.equal(urls.length, 2)
   await updater.check(true)
@@ -97,4 +97,12 @@ test('unrecognized DSH adapter refuses self-update before making changes', async
   assert.equal((await updater.check()).canUpdate, false)
   await assert.rejects(updater.update(sha), /不兼容/)
   assert.equal(calls.length, 0)
+})
+
+test('Git packet parser rejects truncation/HTML and ignores other refs', () => {
+  assert.throws(() => mainCommit('<html>offline</html>'))
+  assert.throws(() => mainCommit('003dshort'))
+  assert.throws(() => mainCommit('0000'))
+  const packet = payload => (Buffer.byteLength(payload) + 4).toString(16).padStart(4, '0') + payload
+  assert.equal(mainCommit(packet('b'.repeat(40) + ' HEAD\0capabilities\n') + packet(sha + ' refs/heads/main\n') + '0000'), sha)
 })
