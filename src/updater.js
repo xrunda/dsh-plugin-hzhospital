@@ -35,13 +35,37 @@ export function mainCommit(advertisement) {
   throw new Error('Git 更新源中没有 main 分支')
 }
 
+/** Return useful network diagnostics without echoing credentials or arbitrary server text. */
+export function networkFailure(error, url) {
+  const codes = new Set()
+  const pending = [error]
+  const seen = new Set()
+  while (pending.length && seen.size < 20) {
+    const item = pending.pop()
+    if (!item || typeof item !== 'object' || seen.has(item)) continue
+    seen.add(item)
+    if (typeof item.code === 'string') codes.add(item.code)
+    pending.push(item.cause, ...(Array.isArray(item.errors) ? item.errors : []))
+  }
+  const host = new URL(url).hostname
+  let reason = '连接失败，请检查网络或代理'
+  if (error?.name === 'TimeoutError' || codes.has('UND_ERR_CONNECT_TIMEOUT') || codes.has('ETIMEDOUT')) reason = '连接超时'
+  else if (codes.has('ENOTFOUND') || codes.has('EAI_AGAIN')) reason = 'DNS 解析失败'
+  else if (codes.has('ECONNREFUSED')) reason = '连接被拒绝，请检查代理是否运行'
+  else if (codes.has('ECONNRESET') || codes.has('UND_ERR_SOCKET')) reason = '连接被重置或关闭'
+  else if ([...codes].some(code => /CERT|TLS|SSL|VERIFY_LEAF/.test(code))) reason = 'HTTPS 证书或 TLS 校验失败'
+  const code = [...codes].find(value => /^[A-Z][A-Z0-9_]{1,48}$/.test(value))
+  return `${host}：${reason}${code ? `（${code}）` : ''}`
+}
+
 export class HospitalUpdater {
-  constructor({ version, manager, fetcher = fetch, now = Date.now, signal, verifyInstalled }) {
+  constructor({ version, manager, fetcher = fetch, now = Date.now, signal, verifyInstalled, readRelease }) {
     this.manager = manager
     this.fetcher = fetcher
     this.now = now
     this.signal = signal
     this.verifyInstalled = verifyInstalled
+    this.readRelease = readRelease
     this.state = { currentVersion: version, status: 'idle', checkedAt: null, latestVersion: null, commit: null,
       message: '尚未检查更新', canUpdate: this.supported() }
     this.checking = null
@@ -55,12 +79,15 @@ export class HospitalUpdater {
   getState() { return { ...this.state } }
   async text(url) {
     const signal = this.signal ? AbortSignal.any([this.signal, AbortSignal.timeout(12000)]) : AbortSignal.timeout(12000)
-    const response = await this.fetcher(url, { signal, headers: { Accept: '*/*', 'User-Agent': PACKAGE } })
+    let response, text
+    try {
+      response = await this.fetcher(url, { signal, headers: { Accept: '*/*', 'User-Agent': PACKAGE } })
+      text = await response.text()
+    } catch (error) { throw new Error(networkFailure(error, url)) }
     if (!response.ok) {
-      if (response.status === 403 || response.status === 429) throw new Error('GitHub 请求受限，请稍后手动重试')
-      throw new Error(`无法访问 GitHub（HTTP ${response.status}）`)
+      if (response.status === 403 || response.status === 429) throw new Error(`${new URL(url).hostname}：访问受限（HTTP ${response.status}），请稍后重试`)
+      throw new Error(`${new URL(url).hostname}：无法访问（HTTP ${response.status}）`)
     }
-    const text = await response.text()
     if (text.length > 256 * 1024) throw new Error('更新信息过大，已拒绝读取')
     return text
   }
@@ -75,14 +102,29 @@ export class HospitalUpdater {
   async performCheck() {
     this.state = { ...this.state, status: 'checking', message: '正在检查 GitHub…' }
     try {
-      const refs = await this.text(`https://github.com/${REPOSITORY}.git/info/refs?service=git-upload-pack`)
-      const commit = mainCommit(refs)
-      const manifest = JSON.parse(await this.text(`https://raw.githubusercontent.com/${REPOSITORY}/${commit}/package.json`))
+      let commit, manifest, viaGit = false
+      try {
+        const refs = await this.text(`https://github.com/${REPOSITORY}.git/info/refs?service=git-upload-pack`)
+        commit = mainCommit(refs)
+        manifest = JSON.parse(await this.text(`https://raw.githubusercontent.com/${REPOSITORY}/${commit}/package.json`))
+      } catch (httpError) {
+        if (!this.readRelease || this.signal?.aborted) throw httpError
+        this.state = { ...this.state, message: 'HTTP 检查未成功，正在通过 Git 安装源检查…' }
+        try {
+          const release = await this.readRelease()
+          commit = release.commit
+          manifest = release.manifest
+          viaGit = true
+          if (!SHA.test(commit)) throw new Error('Git 返回的提交编号无效')
+        } catch (gitError) {
+          throw new Error(`${httpError.message}；备用 Git 检查：${gitError.message}`)
+        }
+      }
       if (manifest.name !== PACKAGE || !manifest.dsh?.bundle) throw new Error('更新源不是医院插件')
       const newer = compareVersions(manifest.version, this.state.currentVersion) > 0
       this.state = { ...this.state, status: newer ? 'available' : 'current', checkedAt: this.now(),
         latestVersion: manifest.version, commit, canUpdate: this.supported(),
-        message: newer ? `发现新版本 ${manifest.version}` : '当前已是最新版本' }
+        message: (newer ? `发现新版本 ${manifest.version}` : '当前已是最新版本') + (viaGit ? '（通过 Git 安装源检查）' : '') }
     } catch (error) {
       this.state = { ...this.state, status: 'error', checkedAt: this.now(), commit: null, latestVersion: null,
         message: this.signal?.aborted ? '插件已停用' : `检查失败：${error.name === 'TimeoutError' ? '连接 GitHub 超时' : error.message}` }

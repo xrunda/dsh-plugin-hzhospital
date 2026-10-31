@@ -29,9 +29,9 @@ dsh plugin --profile <profile> add https://github.com/xrunda/dsh-plugin-hzhospit
 - 点击更新会安装检测到的确切提交，不会跟随安装期间变动的分支。更新时不运行包安装脚本，不卸载运行中的插件；成功后提示完全退出并重开 DSH。
 - 多个页面的检测合并为一个请求。GitHub 限流、超时或断网会显示检查失败，Logo 继续工作。
 
-当前实现直接读取 Git 安装源的提交信息，再通过 `raw.githubusercontent.com` 读取该提交的版本文件，不使用 GitHub 公共 API，不需要 GitHub Token 或额外的 Git 命令。检测和安装需要能访问 GitHub 及其下载服务。没有额外的更新目录或自建服务器。内网 Git 镜像或离线安装仍可使用 Logo，但本版本的检测源固定为此 GitHub 仓库，不会自动跟随镜像地址。
+优先通过 HTTP 读取 Git 提交信息和 `raw.githubusercontent.com` 上对应的版本文件；HTTP 检查失败时，1.1.3 起会使用 Git 命令通过同一 `.git` 安装源读取版本，继承 DSH 安装器环境及 Git 自身的代理设置，避免依赖 raw 子域名。不使用 GitHub 公共 API，也不需要 GitHub Token。Git 回退需要安装插件时使用的 Git 命令仍可用。检测和安装需要能访问 GitHub 及其下载服务。没有额外的更新目录或自建服务器。内网 Git 镜像或离线安装仍可使用 Logo，但本版本的检测源固定为此 GitHub 仓库，不会自动跟随镜像地址。
 
-**第一次升级到 1.1.2：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装最新版（1.1.2）并重启。以后可使用插件自己的按钮更新。
+**第一次升级到更新功能版：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装最新版（1.1.3）并重启。以后可使用插件自己的按钮更新。
 
 DSH `installBundle()` 在 HMR 模式会拒绝覆盖已安装包。本插件因此在宿主侧复用 DSH 的 `change/configure/runPnpm` 事务方法，持有相同的 profile 文件锁及 HMR 排他锁，安装后要求重启，不调用 `removeBundle()` 或主动重载自身。失败时通过 DSH 的恢复方法还原依赖记录和锁文件。**这些事务方法属于版本相关的宿主接口**；最低支持 0.2.1-rc.3；已在 0.2.1-rc.5 验证，并核对官方 rc.3 发布包的相关接口产物与其完全一致，后续 DSH 接口变化可能需要适配插件。方法缺失时不提供一键更新，Logo 和检查功能保留。没有替换、注入或修改任何 DSH 本体文件。
 
@@ -41,10 +41,10 @@ Logo 已保存为 `assets/hztxt_logo.png`，并以 PNG data URI 内嵌在浏览�
 
 **Git 安装仍要求安装机器能访问 Git 服务。** 医院完全断网时，请把本仓库同步到医院内网 Git，再在添加插件处输入内网 `.git` 地址；外网 GitHub 地址无法在完全断网的机器上拉取。
 
-也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.2.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
+也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.3.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
 
 ```sh
-dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.2.tgz
+dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.3.tgz
 ```
 
 ## 兼容范围与工作方式
@@ -111,3 +111,12 @@ ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSe
 ```
 
 如需复核官方包产物，可将 rc.3 npm tarball 解压为 `<目录>/<包名>/package/`，将该目录作为脚本参数。脚本会检查协议、注册表、Gateway、安装管理器和插件详情页产物的相关接口是否与本机已验证版本一致。
+
+## 1.1.3 网络检查修复
+
+1.1.2 仅使用 HTTP 检查，失败时只显示 `fetch failed`，无法定位具体步骤。1.1.3 增加两项能力：
+
+- HTTP 失败时回退到 Git 安装源：`ls-remote` 读取提交，在临时目录中浅拉取指定提交，只读取 `package.json`。不检出或执行仓库代码，不运行 Git hooks，不更改用户 Git 配置或 DSH 本体；结束后清理临时目录。
+- HTTP 和 Git 都失败时，显示失败的 HTTP 主机及 DNS、超时、连接重置、证书等诊断，同时显示 Git 回退的失败类型。不会回显代理账号或密码，也不通过关闭证书校验解决问题。
+
+同一网络不意味着 Git、Node HTTP 请求和不同 GitHub 域名的可达性相同。本地已验证 HTTP 故障回退场景，并通过真实 Git 安装源读取版本；医院机器的实际网络原因仍需依据新版诊断确认。

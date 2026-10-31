@@ -63,6 +63,8 @@ try {
   const root = new URL('../', import.meta.url)
   let entry = readFileSync(new URL('index.js', root), 'utf8')
   entry = entry.replace("import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'", "const { TypertRemoteService } = globalThis.__hzhTestRequire('@deepseek-ai/dsh-typert-protocol')")
+    .replace("import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'", "const { scrubbedParentEnv } = globalThis.__hzhTestRequire('@deepseek-ai/dsh-subprocess')")
+    .replace("'./src/git-release.js'", JSON.stringify(new URL('src/git-release.js', root).href))
     .replace("import { z } from 'zod'", "const { z } = globalThis.__hzhTestRequire('zod')")
     .replace("'./src/updater.js'", JSON.stringify(new URL('src/updater.js', root).href))
     .replace("'./src/remote.cjs'", JSON.stringify(new URL('src/remote.cjs', root).href))
