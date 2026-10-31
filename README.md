@@ -24,10 +24,10 @@ Logo 已保存为 `assets/hztxt_logo.png`，并以 PNG data URI 内嵌在浏览�
 
 **Git 安装仍要求安装机器能访问 Git 服务。** 医院完全断网时，请把本仓库同步到医院内网 Git，再在添加插件处输入内网 `.git` 地址；外网 GitHub 地址无法在完全断网的机器上拉取。
 
-也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.0.0.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
+也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.0.1.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
 
 ```sh
-dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.0.0.tgz
+dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.0.1.tgz
 ```
 
 ## 兼容范围与工作方式
@@ -38,9 +38,9 @@ dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.0.0.tg
 - 支持 `dsh.bundle`、`dsh.client` 和 `window.__ModuleLoader__.load`；
 - 支持 `sidebar.brand.mark`、`sidebar.brand.name` 与 `ctx.slots.inject()`。
 
-组合包通过 `cordis.patch.yml` 将 `ui-brand-official` 行的模块替换为本插件，避免与官方品牌插件竞争。此方式保留侧栏外壳及交互；卸载本组合包后，配置重新组合，恢复官方品牌。插件未启用或更改尚未同步的页面可能需要刷新。
+组合包通过 `cordis.patch.yml` 停用 `ui-brand-official` 行，并插入独立的 `hzhospital-brand` 行。DSH 的 patch `name` 是匹配校验，不能用来替换已有行的模块名。此方式保留侧栏外壳及交互；卸载本组合包后，配置重新组合，恢复官方品牌。插件未启用或更改尚未同步的页面可能需要刷新。
 
-该配置要求现有官方品牌行存在，不适用于没有此行的自定义精简 profile。若安装报目标行不存在，应先核对 DSH 版本及 profile 的组合配置；不要盲目改成 DOM 注入。更晚加载的用户 patch 也可能覆盖本插件配置。
+该配置面向含官方品牌行的 profile；精简 profile 缺少该行时，停用操作会提示未匹配，但医院插件仍会独立插入。更晚加载的用户 patch 可能覆盖停用设置；曾配置过 `brand-custom` 等品牌插件时，应停用它们，避免同时注册品牌插槽。
 
 Logo 原图为 4140 × 640 PNG（白底）。使用 CSS 裁切同一张原图显示院徽与文字，不修改图片字节；深色主题保留原图白底。侧栏中图片高 24px，总宽约 155px。
 
@@ -66,3 +66,13 @@ npm pack --dry-run
 - [官方品牌插件源码](https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/client/ui-brand-official)
 - [客户端模块及资源协议](https://deepseek-harness.github.io/deepseek-harness/reference/subsystems/client-modules)
 - [Logo 来源](https://res.xrunda.com/HZhospital/hztxt_logo.png)
+
+## 1.0.1 修复说明
+
+修复 1.0.0 将 patch 的 `name` 误当作模块替换字段、导致 DSH 跳过插件的问题。已使用本机 DSH 0.2.1-rc.5 自带的真实 patch 函数复现并验证修复。已安装 1.0.0 的用户请卸载后重新从 Git 地址安装，并清理 profile 中旧品牌插件的启用配置。
+
+本机 DSH 安装包回归检查（macOS；读取安装包内真实 patch 函数，不启动会话）：
+
+```sh
+ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness" scripts/check-dsh-runtime.mjs
+```

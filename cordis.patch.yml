@@ -1,4 +1,6 @@
-# Replace the official branding row rather than racing its slot registrations.
-# Removing this bundle restores the original row from the DSH application layer.
+# DSH treats name as a match guard, not a replacement module specifier.
 - id: ui-brand-official
-  name: dsh-plugin-hzhospital
+  disabled: true
+- insert:
+    - id: hzhospital-brand
+      name: dsh-plugin-hzhospital
