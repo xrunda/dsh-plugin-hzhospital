@@ -78,6 +78,46 @@ npm pack --dry-run
 
 修改 `src/client.cjs` 或 Logo 后重新构建，并一起提交 `lib/client.js`。如果换图尺寸不同，需要同步调整源码中的比例及构建脚本的尺寸校验。
 
+## 提交与双仓库推送规范
+
+以本地提交为准，通过 `origin` 同时推送到以下两个仓库：
+
+- GitHub：`https://github.com/xrunda/dsh-plugin-hzhospital.git`
+- 公司 GitLab：`https://git.xrunda.com/mdt/dsh-plugin-hzhospital.git`
+
+当前本地仓库已配置 `origin` 的两个推送地址，默认推送远程为 `origin`；拉取仍从 GitHub 获取。日常修改完成后，检查变更并提交，再执行一次推送：
+
+```sh
+git status
+git add <本次需要提交的文件>
+git commit -m "说明本次修改"
+git push origin main
+```
+
+`git push origin main` 会依次向 GitHub 和 GitLab 推送 `main` 分支。其他分支将 `main` 替换为实际分支名；首次推送新分支可使用 `git push -u origin <分支名>`。已有上游分支时，直接执行 `git push` 也会通过 `origin` 推送两边。标签需单独执行 `git push origin --tags`。
+
+两个仓库分别认证，推送结果也相互独立：一边失败不会回滚另一边。每次应确认两边均成功；处理网络、认证或分支冲突后，重新执行同一条推送命令即可补齐。不要用强制推送处理普通同步失败。保留的 `gitlab` 远程可用于单独补推，例如 `git push gitlab main`，但该命令只更新 GitLab。
+
+尽量在本地统一修改、提交和推送，避免分别在两个平台网页上修改同一分支。网页提交不会自动同步到另一边；如在 GitHub 网页上修改，先在本地执行 `git pull --ff-only origin main`，再执行双仓库推送。
+
+### 新克隆或其他开发机器配置
+
+远程推送配置保存在本地 `.git/config`，不会随 README 或提交传播。新克隆仓库后，在项目目录执行以下命令配置；这会将 `origin` 的推送目标明确设为上述两个仓库，重复执行不会累加地址：
+
+```sh
+git config --local --replace-all remote.origin.pushurl https://github.com/xrunda/dsh-plugin-hzhospital.git
+git config --local --add remote.origin.pushurl https://git.xrunda.com/mdt/dsh-plugin-hzhospital.git
+git config --local remote.pushDefault origin
+```
+
+验证推送目标：
+
+```sh
+git remote get-url --push --all origin
+```
+
+输出应包含 GitHub 和 GitLab 两个地址。此配置同步 Git 提交、分支及显式推送的标签，不同步 Issues、PR 或平台设置。
+
 ## 参考
 
 - [第一个插件](https://deepseek-harness.github.io/deepseek-harness/develop/basic/)
