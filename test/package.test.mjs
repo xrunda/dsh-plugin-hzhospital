@@ -25,13 +25,15 @@ test('shipped browser artifact registers lazily and uses host React/Zod', () => 
   // Execute the declaration-aware callbacks to inspect the actual shipped UI.
   plugin.apply({ on: () => {}, effect: () => {}, remote: {}, slots: {
     inject(key, callback) {
-      assert.ok(['sidebar.brand.mark', 'sidebar.brand.name', 'plugins.bundle.config'].includes(key))
+      assert.ok(['sidebar.brand.mark', 'sidebar.brand.name', 'conversation.hero.brand.mark', 'plugins.bundle.config'].includes(key))
       const result = callback()
       if (result?.[Symbol.iterator]) Array.from(result)
     },
     register({ name }, component) { components.set(name, component) },
   } })
-  assert.equal(components.size, 3)
+  assert.equal(components.size, 4)
+  const hero = components.get('conversation.hero.brand.mark')({ size: 34 })
+  assert.deepEqual(hero.children, ['菏泽市中医医院'])
   const mark = components.get('sidebar.brand.mark')({ size: 24 })
   assert.equal(mark.props.style.width, 24)
   const img = mark.children[0]
