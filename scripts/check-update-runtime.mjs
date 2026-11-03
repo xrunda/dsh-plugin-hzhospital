@@ -38,7 +38,7 @@ try {
     restoreFiles(...args) { return PluginManager.prototype.restoreFiles.apply(this, args) }
     async runPnpm(args) {
       assert.equal(args[0], 'add')
-      assert.equal(args[1], `https://github.com/xrunda/dsh-plugin-hzhospital.git#${sha}`)
+      assert.equal(args[1], `https://git.xrunda.com/mdt/dsh-plugin-hzhospital.git#${sha}`)
       assert.equal(args[2], '--ignore-scripts')
       writeFileSync(join(dir, 'package.json'), '{"name":"temporary-test-profile","changed":true}')
       writeFileSync(join(dir, 'pnpm-lock.yaml'), 'changed lock')

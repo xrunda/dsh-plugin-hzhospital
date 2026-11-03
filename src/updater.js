@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs'
 
 export const PACKAGE = 'dsh-plugin-hzhospital'
-export const REPOSITORY = 'xrunda/dsh-plugin-hzhospital'
+// The update source is the company GitLab mirror, reachable from the hospital
+// intranet; GitHub remains the development mirror only.
+export const REPO_URL = 'https://git.xrunda.com/mdt/dsh-plugin-hzhospital.git'
+export const RAW_BASE = 'https://git.xrunda.com/mdt/dsh-plugin-hzhospital/-/raw'
 export const CACHE_MS = 15 * 60 * 1000
 const SHA = /^[a-f0-9]{40}$/
 
@@ -17,7 +20,7 @@ export function compareVersions(a, b) {
   return 0
 }
 
-// Read Git smart-HTTP v0 advertisements: no Git executable or GitHub API quota.
+// Read Git smart-HTTP v0 advertisements: no Git executable, no API quota.
 export function mainCommit(advertisement) {
   const bytes = Buffer.from(advertisement, 'utf8')
   let offset = 0
@@ -100,13 +103,13 @@ export class HospitalUpdater {
     return this.checking
   }
   async performCheck() {
-    this.state = { ...this.state, status: 'checking', message: '正在检查 GitHub…' }
+    this.state = { ...this.state, status: 'checking', message: '正在检查更新…' }
     try {
       let commit, manifest, viaGit = false
       try {
-        const refs = await this.text(`https://github.com/${REPOSITORY}.git/info/refs?service=git-upload-pack`)
+        const refs = await this.text(`${REPO_URL}/info/refs?service=git-upload-pack`)
         commit = mainCommit(refs)
-        manifest = JSON.parse(await this.text(`https://raw.githubusercontent.com/${REPOSITORY}/${commit}/package.json`))
+        manifest = JSON.parse(await this.text(`${RAW_BASE}/${commit}/package.json`))
       } catch (httpError) {
         if (!this.readRelease || this.signal?.aborted) throw httpError
         this.state = { ...this.state, message: 'HTTP 检查未成功，正在通过 Git 安装源检查…' }
@@ -127,7 +130,7 @@ export class HospitalUpdater {
         message: (newer ? `发现新版本 ${manifest.version}` : '当前已是最新版本') + (viaGit ? '（通过 Git 安装源检查）' : '') }
     } catch (error) {
       this.state = { ...this.state, status: 'error', checkedAt: this.now(), commit: null, latestVersion: null,
-        message: this.signal?.aborted ? '插件已停用' : `检查失败：${error.name === 'TimeoutError' ? '连接 GitHub 超时' : error.message}` }
+        message: this.signal?.aborted ? '插件已停用' : `检查失败：${error.name === 'TimeoutError' ? '连接更新源超时' : error.message}` }
     }
     return this.getState()
   }
@@ -150,7 +153,7 @@ export class HospitalUpdater {
         await manager.configure(async () => {
           const files = await manager.readRestoredFiles()
           try {
-            const run = await manager.runPnpm(['add', `https://github.com/${REPOSITORY}.git#${commit}`, '--ignore-scripts'], this.signal)
+            const run = await manager.runPnpm(['add', `${REPO_URL}#${commit}`, '--ignore-scripts'], this.signal)
             if (run.exitCode !== 0 || run.timedOut || run.incompatible) throw new Error('下载或安装失败；原版本的依赖记录已恢复，请检查网络后重试')
             await this.verifyInstalled(version)
           } catch (error) {

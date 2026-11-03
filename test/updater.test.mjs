@@ -54,7 +54,7 @@ test('equal/older version never becomes an update', async () => {
   }
 })
 
-test('GitHub failure and rate limit remain recoverable on manual retry', async () => {
+test('update-source failure and access limit remain recoverable on manual retry', async () => {
   const { updater } = setup({ fetcher: async () => new Response('', { status: 403 }) })
   const state = await updater.check()
   assert.equal(state.status, 'error')
@@ -72,7 +72,7 @@ test('update installs exact checked commit without uninstall/reload or lifecycle
   const state = await installing
   assert.equal(state.status, 'restart-required')
   assert.equal(state.currentVersion, '1.1.0')
-  assert.deepEqual(calls[0][0], ['add', `https://github.com/xrunda/dsh-plugin-hzhospital.git#${sha}`, '--ignore-scripts'])
+  assert.deepEqual(calls[0][0], ['add', `https://git.xrunda.com/mdt/dsh-plugin-hzhospital.git#${sha}`, '--ignore-scripts'])
   assert.equal(calls.length, 1)
   assert.equal((await updater.check(true)).status, 'restart-required')
 })

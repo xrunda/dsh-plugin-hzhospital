@@ -3,7 +3,7 @@ import { promisify } from 'node:util'
 import { mkdtemp, rm, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { REPOSITORY } from './updater.js'
+import { REPO_URL } from './updater.js'
 
 const exec = promisify(execFile)
 const SHA = /^[a-f0-9]{40}$/
@@ -40,7 +40,7 @@ export function gitReleaseReader({ cwd, env, signal, execute = exec }) {
       }
     }
     try {
-      const repository = `https://github.com/${REPOSITORY}.git`
+      const repository = REPO_URL
       const refs = await git(['ls-remote', '--', repository, 'refs/heads/main'], cwd)
       const commit = /^([a-f0-9]{40})\s+refs\/heads\/main\s*$/m.exec(refs)?.[1]
       if (!commit || !SHA.test(commit)) throw new Error('Git 安装源未返回 main 分支提交')

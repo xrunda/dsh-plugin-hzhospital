@@ -21,10 +21,10 @@ test('HTTP fetch failure falls back to Git metadata and retains the exact update
   assert.equal(gitChecks, 1)
 })
 
-test('raw host blocked while GitHub refs work also uses the install source fallback', async () => {
+test('raw host blocked while Git refs work also uses the install source fallback', async () => {
   const payload = `${commit} refs/heads/main\n`
   const updater = new HospitalUpdater({ version: '1.1.3', manager: {}, fetcher: async url => {
-    if (url.includes('raw.githubusercontent.com')) throw failure
+    if (url.includes('/-/raw/')) throw failure
     return new Response((Buffer.byteLength(payload) + 4).toString(16).padStart(4, '0') + payload + '0000')
   }, readRelease: async () => ({ commit, manifest }) })
   assert.equal((await updater.check()).status, 'available')
@@ -36,7 +36,7 @@ test('HTTP and Git failure identify both routes without exposing proxy credentia
   })
   const state = await updater.check()
   assert.equal(state.status, 'error')
-  assert.match(state.message, /github.com/)
+  assert.match(state.message, /git\.xrunda\.com/)
   assert.match(state.message, /ECONNRESET/)
   assert.match(state.message, /Git 安装源连接超时/)
   assert.doesNotMatch(state.message, /redacted/)
@@ -45,9 +45,9 @@ test('HTTP and Git failure identify both routes without exposing proxy credentia
 test('DNS, TLS and aggregate network errors expose useful categories only', () => {
   for (const [code, expected] of [['ENOTFOUND', /DNS/], ['ECONNREFUSED', /连接被拒绝/], ['CERT_HAS_EXPIRED', /证书/], ['UND_ERR_CONNECT_TIMEOUT', /超时/]]) {
     const error = new TypeError('fetch failed', { cause: new AggregateError([Object.assign(new Error('secret'), { code })]) })
-    const result = networkFailure(error, 'https://raw.githubusercontent.com/path')
+    const result = networkFailure(error, 'https://git.xrunda.com/path')
     assert.match(result, expected)
-    assert.match(result, /raw.githubusercontent.com/)
+    assert.match(result, /git\.xrunda\.com/)
     assert.doesNotMatch(result, /secret/)
   }
 })
