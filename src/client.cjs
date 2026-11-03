@@ -39,16 +39,18 @@ function HospitalName() {
 
 // The empty-conversation hero hardcodes its headline as the i18n string
 // `hero.headline`; only the mark has a slot. Taking the mark and hiding the
-// neighbouring text is therefore the whole replacement. The headline row is a
-// three-column grid (mark, text, preview badge); collapsing it to two columns
-// lets the hospital name use the mark's column without moving the badge.
+// neighbouring text is therefore the whole replacement. Two shipped layouts
+// exist: older builds put mark/text/badge in a three-column grid and give the
+// text its own `_headlineText` class; 0.2.1-rc.5 uses flex with a `_titleGroup`
+// holding a classless headline span followed by the badge. Both are handled.
 // Selectors match the CSS-module suffix so a build-time hash change does not
 // silently leave the official headline visible.
 const heroCss = [
-  // `_headline` alone also names unrelated rows elsewhere, so require the hero's
-  // own mark host before changing the grid.
-  '[class$="_headline"]:has(> [class$="_fishHitbox"]){grid-template-columns:auto auto!important}',
   '[class$="_headlineText"]{display:none!important}',
+  '[class$="_titleGroup"]>span:has(+ [class$="_previewBadge"]){display:none!important}',
+  // `_headline` alone also names unrelated rows elsewhere, so require the hero's
+  // own mark host before changing the grid. Inert on the flex layout.
+  '[class$="_headline"]:has(> [class$="_fishHitbox"]){grid-template-columns:auto auto!important}',
   '[class$="_fishHitbox"]{white-space:nowrap}',
 ].join('')
 

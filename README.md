@@ -31,7 +31,7 @@ dsh plugin --profile <profile> add https://github.com/xrunda/dsh-plugin-hzhospit
 
 优先通过 HTTP 读取 Git 提交信息和 `raw.githubusercontent.com` 上对应的版本文件；HTTP 检查失败时，1.1.3 起会使用 Git 命令通过同一 `.git` 安装源读取版本，继承 DSH 安装器环境及 Git 自身的代理设置，避免依赖 raw 子域名。不使用 GitHub 公共 API，也不需要 GitHub Token。Git 回退需要安装插件时使用的 Git 命令仍可用。检测和安装需要能访问 GitHub 及其下载服务。没有额外的更新目录或自建服务器。内网 Git 镜像或离线安装仍可使用 Logo，但本版本的检测源固定为此 GitHub 仓库，不会自动跟随镜像地址。
 
-**第一次升级到更新功能版：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装最新版（1.1.4）并重启。以后可使用插件自己的按钮更新。
+**第一次升级到更新功能版：** 1.0.x 尚无此更新界面，请在 DSH 中卸载旧版，再通过同一 Git 地址安装最新版（1.1.5）并重启。以后可使用插件自己的按钮更新。
 
 DSH `installBundle()` 在 HMR 模式会拒绝覆盖已安装包。本插件因此在宿主侧复用 DSH 的 `change/configure/runPnpm` 事务方法，持有相同的 profile 文件锁及 HMR 排他锁，安装后要求重启，不调用 `removeBundle()` 或主动重载自身。失败时通过 DSH 的恢复方法还原依赖记录和锁文件。**这些事务方法属于版本相关的宿主接口**；最低支持 0.2.1-rc.3；已在 0.2.1-rc.5 验证，并核对官方 rc.3 发布包的相关接口产物与其完全一致，后续 DSH 接口变化可能需要适配插件。方法缺失时不提供一键更新，Logo 和检查功能保留。没有替换、注入或修改任何 DSH 本体文件。
 
@@ -41,10 +41,10 @@ Logo 已保存为 `assets/hztxt_logo.png`，并以 PNG data URI 内嵌在浏览�
 
 **Git 安装仍要求安装机器能访问 Git 服务。** 医院完全断网时，请把本仓库同步到医院内网 Git，再在添加插件处输入内网 `.git` 地址；外网 GitHub 地址无法在完全断网的机器上拉取。
 
-也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.4.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
+也可以在本仓库运行 `npm pack`，将生成的 `dsh-plugin-hzhospital-1.1.5.tgz` 拷入内网，在添加插件处输入该文件的绝对路径，或执行：
 
 ```sh
-dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.4.tgz
+dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.5.tgz
 ```
 
 ## 兼容范围与工作方式
@@ -61,7 +61,7 @@ dsh plugin --profile <profile> add /absolute/path/dsh-plugin-hzhospital-1.1.4.tg
 
 Logo 原图为 4140 × 640 PNG（白底）。使用 CSS 裁切同一张原图显示院徽与文字，不修改图片字节；深色主题保留原图白底。侧栏中图片高 24px，总宽约 155px。
 
-欢迎页标题没有独立的插槽：官方把 `hero.headline` 文案直接写死在标题行里，只开放了鲸鱼标志的 `conversation.hero.brand.mark`。本插件占用该插槽渲染院名，并注入一段只作用于标题行的 `<style>` 隐藏原文案、把标题网格从三列收成两列，因此“预览版”徽标位置不变。样式选择器按 CSS Module 类名的后缀匹配（`_headline`、`_headlineText`、`_fishHitbox`），DSH 重新构建改变哈希前缀时仍然有效；若官方调整了标题行的类名或结构，需要同步更新 `src/client.cjs` 中的 `heroCss`。
+欢迎页标题没有独立的插槽：官方把 `hero.headline` 文案直接写死在标题行里，只开放了鲸鱼标志的 `conversation.hero.brand.mark`。本插件占用该插槽渲染院名，并注入一段只作用于标题行的 `<style>` 隐藏原文案，因此“预览版”徽标位置不变。目前存在两种标题行结构：0.2.1-rc.5 的 flex 布局把标题文字放在 `_titleGroup` 内一个无 class 的 span 中，较早的构建则是三列 grid 并使用 `_headlineText`；插件同时匹配两者。选择器按 CSS Module 类名的后缀匹配，DSH 重新构建改变哈希前缀时仍然有效；若官方再次调整标题行的类名或结构，需要同步更新 `src/client.cjs` 中的 `heroCss`。
 
 已完成单元测试，并在本机 DSH 0.2.1-rc.5 的真实客户端 RPC、宿主 Gateway、事务锁与文件恢复代码上进行临时 profile 集成检查；网络响应和包下载在该集成检查中使用测试替身。未在医院实际 DSH 客户端中完成安装验收。应在目标客户端检查安装、启用、展开/折叠、深浅主题及卸载恢复。
 
@@ -126,3 +126,7 @@ ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSe
 ## 1.1.4 欢迎页品牌替换
 
 空会话欢迎页把官方鲸鱼标志、“探索未至之境”标题和“预览版”徽标排在同一行，其中只有鲸鱼标志有插槽。1.1.4 占用 `conversation.hero.brand.mark` 渲染“菏泽市中医医院”文字，并用一段仅匹配该标题行的样式隐藏官方标题、收拢网格列；徽标保持原位。侧栏品牌和版本检查/更新功能不变。
+
+## 1.1.5 欢迎页标题结构修复
+
+1.1.4 只匹配了三列 grid 布局的 `_headlineText`，而实际运行的 DSH 0.2.1-rc.5 使用 flex 布局：标题文字位于 `_titleGroup` 内一个无 class 的 span 中，因此官方标题仍显示在院名旁边。1.1.5 增加 `_titleGroup` 内紧邻“预览版”徽标的标题 span 的隐藏规则，同时保留旧结构选择器；院名与“预览版”徽标布局不变。
